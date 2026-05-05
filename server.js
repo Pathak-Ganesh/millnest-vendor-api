@@ -16,7 +16,7 @@ const pool = new Pool({
 });
 
 // ============================================
-// FUZZY MATCHING FUNCTION (Pure JavaScript)
+// FUZZY MATCHING FUNCTION
 // ============================================
 function getSimilarity(str1, str2) {
     if (!str1 || !str2) return 0;
@@ -50,19 +50,19 @@ function getSimilarity(str1, str2) {
 }
 
 // ============================================
-// SIMPLE VENDOR LIST (Hardcoded for reliability)
+// VENDOR DATABASE (In-memory for reliability)
 // ============================================
 const VENDORS = [
-    { id: "V-1001", vendor_code: "V-1001", legal_name: "Larsen & Toubro Ltd", trade_name: "L&T", gst: "27AAACL1234A1Z", city: "Mumbai", status: "ACTIVE" },
-    { id: "V-1002", vendor_code: "V-1002", legal_name: "Tata Projects Ltd", trade_name: "Tata Projects", gst: "27AAACT5678B2Z", city: "Mumbai", status: "ACTIVE" },
-    { id: "V-1003", vendor_code: "V-1003", legal_name: "Siemens India Pvt Ltd", trade_name: "Siemens", gst: "27AAACS9012C3Z", city: "Mumbai", status: "ACTIVE" },
-    { id: "V-1004", vendor_code: "V-1004", legal_name: "ACC Limited", trade_name: "ACC", gst: "27AAACA3456D4Z", city: "Mumbai", status: "ACTIVE" },
-    { id: "V-1005", vendor_code: "V-1005", legal_name: "Reliance Infrastructure Ltd", trade_name: "Reliance Infra", gst: "27AAACR7890E5Z", city: "Mumbai", status: "ACTIVE" },
-    { id: "V-1006", vendor_code: "V-1006", legal_name: "Bharat Heavy Electricals Ltd", trade_name: "BHEL", gst: "27AAACB1122F6Z", city: "New Delhi", status: "ACTIVE" },
-    { id: "V-1007", vendor_code: "V-1007", legal_name: "Gammon India Ltd", trade_name: "Gammon", gst: "27AAACG3344G7Z", city: "Mumbai", status: "ACTIVE" },
-    { id: "V-1008", vendor_code: "V-1008", legal_name: "Hindustan Construction Co Ltd", trade_name: "HCC", gst: "27AAACH5566H8Z", city: "Mumbai", status: "ACTIVE" },
-    { id: "V-1009", vendor_code: "V-1009", legal_name: "Punj Lloyd Ltd", trade_name: "Punj Lloyd", gst: "27AAACP7788I9Z", city: "Gurgaon", status: "ACTIVE" },
-    { id: "V-1010", vendor_code: "V-1010", legal_name: "Essar Projects India Ltd", trade_name: "Essar", gst: "27AAACE9900J0Z", city: "Mumbai", status: "ACTIVE" }
+    { id: "1", vendor_code: "V-1001", legal_name: "Larsen & Toubro Ltd", trade_name: "L&T", gst: "27AAACL1234A1Z", city: "Mumbai", status: "ACTIVE" },
+    { id: "2", vendor_code: "V-1002", legal_name: "Tata Projects Ltd", trade_name: "Tata Projects", gst: "27AAACT5678B2Z", city: "Mumbai", status: "ACTIVE" },
+    { id: "3", vendor_code: "V-1003", legal_name: "Siemens India Pvt Ltd", trade_name: "Siemens", gst: "27AAACS9012C3Z", city: "Mumbai", status: "ACTIVE" },
+    { id: "4", vendor_code: "V-1004", legal_name: "ACC Limited", trade_name: "ACC", gst: "27AAACA3456D4Z", city: "Mumbai", status: "ACTIVE" },
+    { id: "5", vendor_code: "V-1005", legal_name: "Reliance Infrastructure Ltd", trade_name: "Reliance Infra", gst: "27AAACR7890E5Z", city: "Mumbai", status: "ACTIVE" },
+    { id: "6", vendor_code: "V-1006", legal_name: "Bharat Heavy Electricals Ltd", trade_name: "BHEL", gst: "27AAACB1122F6Z", city: "New Delhi", status: "ACTIVE" },
+    { id: "7", vendor_code: "V-1007", legal_name: "Gammon India Ltd", trade_name: "Gammon", gst: "27AAACG3344G7Z", city: "Mumbai", status: "ACTIVE" },
+    { id: "8", vendor_code: "V-1008", legal_name: "Hindustan Construction Co Ltd", trade_name: "HCC", gst: "27AAACH5566H8Z", city: "Mumbai", status: "ACTIVE" },
+    { id: "9", vendor_code: "V-1009", legal_name: "Punj Lloyd Ltd", trade_name: "Punj Lloyd", gst: "27AAACP7788I9Z", city: "Gurgaon", status: "ACTIVE" },
+    { id: "10", vendor_code: "V-1010", legal_name: "Essar Projects India Ltd", trade_name: "Essar", gst: "27AAACE9900J0Z", city: "Mumbai", status: "ACTIVE" }
 ];
 
 // ============================================
@@ -85,46 +85,41 @@ app.get('/', (req, res) => {
 });
 
 // GET all vendors
-app.get('/api/vendors', async (req, res) => {
+app.get('/api/vendors', (req, res) => {
+    const activeVendors = VENDORS.filter(v => v.status === 'ACTIVE');
     res.json({
         success: true,
-        count: VENDORS.length,
-        vendors: VENDORS.filter(v => v.status === 'ACTIVE')
+        count: activeVendors.length,
+        vendors: activeVendors
     });
 });
 
-// POST - Check for duplicates (AI matching)
-app.post('/api/vendors/check', async (req, res) => {
+// POST - Check for duplicates
+app.post('/api/vendors/check', (req, res) => {
     try {
-        const { name, gst, userEmail } = req.body;
+        const { name, gst } = req.body;
         
         if (!name || name.trim().length < 2) {
             return res.status(400).json({ success: false, error: 'Vendor name required' });
         }
         
-        console.log(`🔍 Checking: "${name}"`);
+        console.log(`Checking: "${name}"`);
         
-        // Find matches using fuzzy logic
+        // Find matches
         const matches = [];
         
         for (const vendor of VENDORS) {
-            // Skip inactive vendors
             if (vendor.status !== 'ACTIVE') continue;
             
-            // Calculate similarity score
             const nameScore = getSimilarity(name, vendor.legal_name);
             const tradeScore = vendor.trade_name ? getSimilarity(name, vendor.trade_name) : 0;
-            const bestScore = Math.max(nameScore, tradeScore);
+            let bestScore = Math.max(nameScore, tradeScore);
             
-            // Check GST match
-            let gstScore = 0;
             if (gst && vendor.gst && gst.toUpperCase() === vendor.gst.toUpperCase()) {
-                gstScore = 1.0;
+                bestScore = 1.0;
             }
             
-            const finalScore = Math.max(bestScore, gstScore);
-            
-            if (finalScore > 0.3) {
+            if (bestScore > 0.3) {
                 matches.push({
                     id: vendor.id,
                     vendor_code: vendor.vendor_code,
@@ -132,16 +127,13 @@ app.post('/api/vendors/check', async (req, res) => {
                     trade_name: vendor.trade_name,
                     gst: vendor.gst,
                     city: vendor.city,
-                    similarity_score: finalScore,
-                    match_type: gstScore === 1 ? 'exact_gst' : 'fuzzy_name'
+                    similarity_score: bestScore
                 });
             }
         }
         
-        // Sort by score (highest first)
         matches.sort((a, b) => b.similarity_score - a.similarity_score);
         
-        // Determine recommendation
         let recommendation = 'CREATE';
         let message = '';
         
@@ -151,19 +143,19 @@ app.post('/api/vendors/check', async (req, res) => {
             
             if (bestScore >= 0.85) {
                 recommendation = 'BLOCK';
-                message = `⛔ DUPLICATE DETECTED! "${bestMatch.legal_name}" (${Math.round(bestScore * 100)}% match)`;
+                message = 'Duplicate vendor detected. Creation blocked.';
             } else if (bestScore >= 0.65) {
                 recommendation = 'WARNING';
-                message = `⚠️ POTENTIAL DUPLICATE: "${bestMatch.legal_name}" (${Math.round(bestScore * 100)}% match)`;
+                message = 'Potential duplicate found. Please review.';
             } else {
                 recommendation = 'REVIEW';
-                message = `🔍 Low confidence match: "${bestMatch.legal_name}" (${Math.round(bestScore * 100)}% match)`;
+                message = 'Low confidence match. Manual review recommended.';
             }
         } else {
-            message = '✅ No existing vendor found. Safe to create.';
+            message = 'No existing vendor found. Safe to create.';
         }
         
-        console.log(`Result: ${recommendation} - ${message}`);
+        console.log(`Result: ${recommendation}`);
         
         res.json({
             success: true,
@@ -181,7 +173,7 @@ app.post('/api/vendors/check', async (req, res) => {
 });
 
 // POST - Create new vendor
-app.post('/api/vendors', async (req, res) => {
+app.post('/api/vendors', (req, res) => {
     try {
         const { legal_name, trade_name, gst, pan, city, contact_person, contact_email, contact_phone, address } = req.body;
         
@@ -189,7 +181,7 @@ app.post('/api/vendors', async (req, res) => {
             return res.status(400).json({ success: false, error: 'Legal name required' });
         }
         
-        // Check for duplicates before creating
+        // Check for duplicates
         let isDuplicate = false;
         let existingVendor = null;
         
@@ -212,29 +204,20 @@ app.post('/api/vendors', async (req, res) => {
                 success: false,
                 error: 'DUPLICATE_DETECTED',
                 existing_vendor: existingVendor,
-                message: `Vendor already exists: ${existingVendor.legal_name}`
+                message: 'Vendor already exists'
             });
         }
         
         // Generate new vendor code
-        const lastCode = VENDORS[VENDORS.length - 1]?.vendor_code || 'V-1000';
+        const lastCode = VENDORS[VENDORS.length - 1].vendor_code;
         const lastNum = parseInt(lastCode.split('-')[1]);
-        const newCode = `V-${lastNum + 1}`;
+        const newCode = 'V-' + (lastNum + 1);
         
         // Create new vendor
         const newVendor = {
-            id: `V-${Date.now()}`()}`,
-            vendor_code,
-            vendor_code: new: newCode,
-Code,
+            id: String(Date.now()),
+            vendor_code: newCode,
             legal_name: legal_name,
-            trade_name: trade_name || null,
-            gst: gst || null,
-            pan: pan || null,
-            city: city || null,
-            contact_person: contact_person || null,
-            contact_email: contact_email || null,
-            contact_            legal_name: legal_name,
             trade_name: trade_name || null,
             gst: gst || null,
             pan: pan || null,
@@ -248,20 +231,7 @@ Code,
         
         VENDORS.push(newVendor);
         
-        console.log(`✅ Created vendor: ${newCode} - ${legal_name}`);
-        
-        res.json({
-            success: true,
-            vendor: newVendor,
-            message: 'Vendor created successfully'
-phone: contact_phone || null,
-            address: address || null,
-            status: 'ACTIVE'
-        };
-        
-        VENDORS.push(newVendor);
-        
-        console.log(`✅ Created vendor: ${newCode} - ${legal_name}`);
+        console.log('Created vendor:', newCode, '-', legal_name);
         
         res.json({
             success: true,
@@ -270,77 +240,35 @@ phone: contact_phone || null,
         });
         
     } catch (error) {
-        console.error('Error creating vendor:', error);
+        console.error('Error:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });
 
 // GET - Dashboard stats
-app.get('/api/dashboard', async (req, res) => {
+app.get('/api/dashboard', (req, res) => {
+    const activeCount = VENDORS.filter(v => v.status === 'ACTIVE').length;
     res.json({
         success: true,
         stats: {
-            active_vendors: VENDORS.filter(v => v.status === 'ACTIVE').length,
+            active_vendors: activeCount,
             total_checks: 0,
             duplicates_blocked: 0
         }
     });
 });
 
-// GET - Audit logs (        });
-        
-    } catch (error) {
-        console.error('Error creating vendor:', error);
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-// GET - Dashboard stats
-app.get('/api/dashboard', async (req, res) => {
+// GET - Audit logs
+app.get('/api/audit', (req, res) => {
     res.json({
         success: true,
-        stats: {
-            active_vendors: VENDORS.filter(v => v.status === 'ACTIVE').length,
-            total_checks: 0,
-            duplicates_blocked: 0
-        }
-    });
-});
-
-// GET - Audit logs (simplsimplified)
-app.getified)
-app.get('/api/aud('/api/audit',it', async (req, async (req, res) res) => {
-    res => {
-    res.json({
-.json({
-        success: true        success: true,
-       ,
         audits: []
-    audits: []
     });
 });
 
- });
-});
-
-app.listen(Papp.listen(PORT,ORT, () => {
-    () => {
-    console.log(`
- console.log    ╔(`
-════════════════    ╔══════════════════════════════════════════════════════════════╗
-   ╗
-    ║ ║   🏗   🏗️ ️  MILLN MILLNEST VEST VENDORENDOR INTE INTELLIGLLIGENCE   ENCE    ║
- ║
-       ║ ║                                                                             ║ ║
-   
-    ║   ║   ✅ API ✅ API running on running on port ${ port ${PORT}         ║PORT}         ║
-   
-    ║   ║   📍 📍 Vendors Vendors loaded: loaded: ${V ${VENDORSENDORS.length.length}   }    ║
- ║
-       ║ ║     🔍 Fuzzy 🔍 Fuzzy matching: matching: ENABLED          ENABLED          ║ ║
-   
-    ╚════ ╚══════════════════════════════════════════════════════════════════════════╝╝
-   
-    `);
- `);
+// Start server
+app.listen(PORT, () => {
+    console.log('Millnest Vendor API running on port', PORT);
+    console.log('Vendors loaded:', VENDORS.length);
+    console.log('Fuzzy matching: ENABLED');
 });
